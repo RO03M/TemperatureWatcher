@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Drawing;
 
-using OpenHardwareMonitor.Hardware;
+//using static temperatures.src.utils.math_comparators;
+using static temperatures.src.temperature_handlers.sensors_info;
+using static temperatures.src.temperature_handlers.temperature_comparator;
 
 namespace temperatures.src {
     class Program : Form {
@@ -16,7 +15,7 @@ namespace temperatures.src {
         public Color TRANSPARENT_COLOR = Color.FromArgb(10, 10, 10);
         public Color FONT_COLOR = Color.FromArgb(0, 0, 0);
 
-        public float delayTime = .5f;//time to get new data from the sensors
+        public float delayTime = 2f;//time to get new data from the sensors
         public float? cpuTemp = 69;
         public float? gpuTemp = 69;
         public Label cpuTempLabel = new Label();
@@ -24,6 +23,8 @@ namespace temperatures.src {
 
         public Program() {
             Application.EnableVisualStyles();
+            cpuTemp = CPUTemperature();
+            gpuTemp = GPUTemperature();
             this.Text = APP_NAME;
             this.TopMost = true;//some apps like Minecraft on fullscreen make topmost useless, so we need to modify dll code to make always on top -> https://stackoverflow.com/questions/683330/how-to-make-a-window-always-stay-on-top-in-net
             this.StartPosition = FormStartPosition.Manual;
@@ -50,7 +51,7 @@ namespace temperatures.src {
             this.Controls.Add(cpuTempLabel);
             this.Controls.Add(gpuTempLabel);
 
-            Thread thread = new Thread(new ThreadStart(this.Update));
+            Thread thread = new Thread(new ThreadStart(this.Loop));
             thread.Start();
             Application.Run(this);
         }
@@ -59,39 +60,20 @@ namespace temperatures.src {
             Program program = new Program();
         }
 
-        public void Update() {
+        public void Loop() {
             while (true) {
                 Thread.Sleep(TimeSpan.FromSeconds(delayTime));
-                GetTemp();
+                cpuTemp = CPUTemperature();
+                gpuTemp = GPUTemperature();
                 MethodInvoker update = delegate {
                     cpuTempLabel.Text = "CPU: " + cpuTemp + "°C";
+                    cpuTempLabel.ForeColor = GetColorByTemperature(cpuTemp);
                     gpuTempLabel.Text = "GPU: " + gpuTemp + "°C";
+                    gpuTempLabel.ForeColor = GetColorByTemperature(gpuTemp);
                     this.BringToFront();
                 };
                 this.Invoke(update);
             }
         }
-
-        public void GetTemp() {
-            Computer COMPUTER = new Computer();
-            COMPUTER.CPUEnabled = true;
-            COMPUTER.GPUEnabled = true;
-            COMPUTER.Open();
-
-            for (int h = 0; h < COMPUTER.Hardware.Length; h++) {
-                if (COMPUTER.Hardware[h].HardwareType.ToString() == "CPU") {
-                    for (int s = 0; s < COMPUTER.Hardware[h].Sensors.Length; s++) {
-                        if (COMPUTER.Hardware[h].Sensors[s].SensorType.ToString() == "Temperature" && COMPUTER.Hardware[h].Sensors[s].Name.ToString() == "CPU Package") {
-                            cpuTemp = COMPUTER.Hardware[h].Sensors[s].Value;
-                        }
-                    }
-                } else if (COMPUTER.Hardware[h].HardwareType.ToString() == "GpuNvidia") {
-                    for (int s = 0; s < COMPUTER.Hardware[h].Sensors.Length; s++) {
-                        if (COMPUTER.Hardware[h].Sensors[s].SensorType.ToString() == "Temperature") gpuTemp = COMPUTER.Hardware[h].Sensors[s].Value;
-                    }
-                }
-            }
-        }
-
     }
 }
